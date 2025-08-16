@@ -26,8 +26,14 @@ public:
                      const std::vector<double> &tau_measured,
                      std::vector<double> &tau_robot,
                      std::vector<double> &tau_comp, double &mass_rls);
+  bool UpdateMassRLS0816(const std::vector<double> &q,
+                     const std::vector<double> &dq,
+                     const std::vector<std::array<double, 3>> &ddq,
+                     const std::vector<double> &tau_measured,
+                     std::vector<double> &tau_robot,
+                     std::vector<double> &tau_comp, double &mass_rls);
 
-private:
+ private:
   // 工具函数
   bool isValidNumber(double x);
   double saturate(double x, double limit);

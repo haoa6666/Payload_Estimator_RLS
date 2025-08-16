@@ -46,8 +46,9 @@ void InterpInfoCallback(const payload_estimator::DebugConstPtr &debug_info) {
 int main(int argc, char **argv) {
   ros::init(argc, argv, "payload_estimator");
   // 1) 加载 URDF
-  std::string urdf_file = "/home/ubuntu/WXY/TEST_FUNC/Payload_Estimator_RLS/"
-                          "payload_comp_test/src/urdf/y10804.urdf";
+  std::string urdf_file =
+      "/home/ahao/WXY/IMETA_LAB/TEST_FUNCTION/Payload_Estimator_RLS/src/urdf/"
+      "y10804.urdf";
   // std::ifstream ifs(urdf_file);
   // std::string urdf_xml((std::istreambuf_iterator<char>(ifs)),
   // std::istreambuf_iterator<char>());
@@ -100,7 +101,7 @@ int main(int argc, char **argv) {
     // 添加对输入向量大小的检查，确保它们不为空且大小一致
     if (q_.size() == dq_.size() && ddq_.size() == q_.size() &&
         tau_measured_.size() == q_.size() && q_.size() > 0) {
-      if (estimator.UpdateMassRLS(q_, dq_, ddq_, tau_measured_, tau_robot,
+      if (estimator.UpdateMassRLS0816(q_, dq_, ddq_, tau_measured_, tau_robot,
                                   tau_comp, mass_rls)) {
                     payload_debug_msg.header.stamp = ros::Time::now();
         // AINFO << "tau_comp: " << tau_comp[0] << ", " << tau_comp[1] << ", "

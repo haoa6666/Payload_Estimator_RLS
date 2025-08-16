@@ -3,7 +3,7 @@ project(payload_estimator)
 
 ## 设置编译选项
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 17)
 
 ## 查找 catkin 的构建系统和依赖项
 find_package(catkin REQUIRED COMPONENTS 
