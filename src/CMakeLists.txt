@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   std_msgs
   message_generation
+  trac_ik_lib
   urdf
   kdl_parser
 )
@@ -46,6 +47,7 @@ include_directories(
 
 ## 添加可执行文件
 add_executable(payload_estimator
+  kdl_solver/kdl_solver.cpp
   payload_estimator/payload_estimator.cpp
   main.cpp
 )
