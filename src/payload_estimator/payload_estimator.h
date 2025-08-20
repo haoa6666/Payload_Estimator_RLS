@@ -76,6 +76,8 @@ private:
 
   // 滤波缓存
   std::vector<double> tau_comp_prev_;
+  // 滤波缓存PID补偿用
+  std::vector<double> tau_comp_pid_prev_;
 
   KDL::Vector gravity_kdl; // 重力方向向量，默认 (0, 0, -9.81)
 
@@ -83,13 +85,19 @@ private:
   // RLS
   std::vector<double> tau_meas_med_;  // 中值滤波输出
   std::vector<double> tau_meas_filt_; // 低通后输出
+  // PID
+  std::vector<double> tau_meas_med_pid_;  // 中值滤波输出-pid用
+  std::vector<double> tau_meas_filt_pid_; // 低通后输出-pid用
+
   // 位置、速度PID
   std::vector<double> pid_integral_torque_;   // 积分缓存
   std::vector<double> pid_prev_error_torque_; // 微分缓存
                                               // 力矩PID 积分、微分缓存
   std::vector<double> pid_integral_state_;    // 中值滤波输出
   std::vector<double> pid_prev_error_state_;  // 低通后输出
+
   std::vector<std::array<double, 5>> med_buf_; // 每关节5点窗口
+  std::vector<std::array<double, 5>> med_buf_pid_; // 每关节5点窗口
   double lp_fc_ = 1.0; // 低通截止频率 [Hz]，按采样率调
   double dt_ = 0.005;  // 采样周期 [s]，100Hz示例
 };

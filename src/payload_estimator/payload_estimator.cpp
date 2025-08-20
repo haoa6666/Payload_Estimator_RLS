@@ -57,10 +57,10 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
   }
 
   // --- 初始化缓存 ---
-  if (tau_comp_prev_.size() != N) tau_comp_prev_.assign(N, 0.0);
-  if (tau_meas_med_.size() != N)  tau_meas_med_.assign(N, 0.0);
-  if (tau_meas_filt_.size() != N) tau_meas_filt_.assign(N, 0.0);
-  if (med_buf_.size() != N)       med_buf_.assign(N, {0.0,0.0,0.0,0.0,0.0});
+  if (tau_comp_pid_prev_.size() != N) tau_comp_pid_prev_.assign(N, 0.0);
+  if (tau_meas_med_pid_.size() != N)  tau_meas_med_pid_.assign(N, 0.0);
+  if (tau_meas_filt_pid_.size() != N) tau_meas_filt_pid_.assign(N, 0.0);
+  if (med_buf_pid_.size() != N)       med_buf_pid_.assign(N, {0.0,0.0,0.0,0.0,0.0});
 
   // 两种模式分开存放积分和微分缓存
   if (pid_integral_torque_.size() != N) pid_integral_torque_.assign(N, 0.0);
@@ -72,13 +72,13 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
   const double alpha = ema_alpha_from_fc(lp_fc_, dt_);
   std::vector<double> tau_measured_filtered(N);
   for (unsigned int i = 0; i < N; ++i) {
-    auto &buf = med_buf_[i];
+    auto &buf = med_buf_pid_[i];
     buf[0]=buf[1]; buf[1]=buf[2]; buf[2]=buf[3]; buf[3]=buf[4];
     buf[4]=tau_measured[i];
     double med = median5(buf[0], buf[1], buf[2], buf[3], buf[4]);
-    tau_meas_med_[i] = med;
-    tau_meas_filt_[i] = (1.0 - alpha) * tau_meas_filt_[i] + alpha * med;
-    tau_measured_filtered[i] = tau_meas_filt_[i];
+    tau_meas_med_pid_[i] = med;
+    tau_meas_filt_pid_[i] = (1.0 - alpha) * tau_meas_filt_pid_[i] + alpha * med;
+    tau_measured_filtered[i] = tau_meas_filt_pid_[i];
   }
 
   tau_comp.resize(N);
@@ -133,13 +133,13 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
 
     // 限幅 + 限速
     double limited_val = std::clamp(u, -tau_limit, tau_limit);
-    tau_comp[i] = slewRateLimit(tau_comp_prev_[i], limited_val, tau_rate_limit);
-    tau_comp_prev_[i] = tau_comp[i];
+    tau_comp[i] = slewRateLimit(tau_comp_pid_prev_[i], limited_val, tau_rate_limit);
+    tau_comp_pid_prev_[i] = tau_comp[i];
 
     // 末端关节屏蔽补偿
     if (i == 4 || i == 5) {
       tau_comp[i] = 0.0;
-      tau_comp_prev_[i] = 0.0;
+      tau_comp_pid_prev_[i] = 0.0;
     }
   }
 
