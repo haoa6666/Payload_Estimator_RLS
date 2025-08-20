@@ -29,12 +29,11 @@ PayloadEstimator::PayloadEstimator(const KDL::Chain &chain)
       gravity_(0.0, 0.0, -9.81),
       theta_(Eigen::Vector4d::Zero()),
       lambda_(0.98), P_(Eigen::Matrix4d::Identity() * 1000.0){
-  jac_solver_ = std::make_shared<KDL::ChainJntToJacSolver>(chain_);
-  dyn_solver_ =
-      std::make_shared<KDL::ChainDynParam>(chain_, KDL::Vector(0, 0, -9.81));
-  P_ = Eigen::MatrixXd::Identity(4, 4) * 1000.0;
-  theta_.setZero();
-  gravity_ << 0, 0, -9.81;
+      jac_solver_ = std::make_shared<KDL::ChainJntToJacSolver>(chain_);
+      dyn_solver_ = std::make_shared<KDL::ChainDynParam>(chain_, KDL::Vector(0, 0, -9.81));
+      P_ = Eigen::MatrixXd::Identity(4, 4) * 1000.0;
+      theta_.setZero();
+      // gravity_ << 0, 0, -9.81;
 }
 
 void PayloadEstimator::Init(double lambda, double init_mass) {
@@ -153,7 +152,6 @@ bool PayloadEstimator::UpdateMassRLS(
     const std::vector<std::array<double, 3>> &target_traj_state,
     const std::vector<double> &tau_measured, std::vector<double> &tau_robot,
     std::vector<double> &tau_comp, double &mass_rls) {
-  {
     const unsigned int N = q.size();
     if (dq.size() != N || target_traj_state.size() != N ||
         tau_measured.size() != N || tau_robot.size() != N) {
@@ -163,7 +161,6 @@ bool PayloadEstimator::UpdateMassRLS(
             << ", tau_measured_size = " << tau_measured.size() << std::endl;
       return false;
     }
-
     // 初始化滤波缓存
     if (tau_comp_prev_.size() != N)
       tau_comp_prev_.assign(N, 0.0);
@@ -228,9 +225,10 @@ bool PayloadEstimator::UpdateMassRLS(
 
     // 3) 残差（负载引起的部分）
     Eigen::VectorXd y(N);
-    for (unsigned int i = 0; i < N; ++i)
+    for (unsigned int i = 0; i < N; ++i) {
       // y(i) = tau_measured[i] + tau_comp_prev_[i] - tau_nominal(i);
       y(i) = tau_measured[i] - tau_nominal(i);
+    }
 
     // 4) 构造 Phi
     KDL::Jacobian jac_kdl(N);
@@ -331,7 +329,7 @@ bool PayloadEstimator::UpdateMassRLS(
 
     return true;
   }
-}
+
 
 void PayloadEstimator::RLSUpdate(const Eigen::RowVector4d &phi,  // 回归向量
                                  double y,                       // 观测输出
