@@ -57,10 +57,10 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
   }
 
   // --- 初始化缓存 ---
-  if (tau_comp_pid_prev_.size() != N) tau_comp_pid_prev_.assign(N, 0.0);
-  if (tau_meas_med_pid_.size() != N)  tau_meas_med_pid_.assign(N, 0.0);
-  if (tau_meas_filt_pid_.size() != N) tau_meas_filt_pid_.assign(N, 0.0);
-  if (med_buf_pid_.size() != N)       med_buf_pid_.assign(N, {0.0,0.0,0.0,0.0,0.0});
+  if (pid_tau_comp_prev_.size() != N) pid_tau_comp_prev_.assign(N, 0.0);
+  if (pid_tau_meas_med_.size() != N)  pid_tau_meas_med_.assign(N, 0.0);
+  if (pid_tau_meas_filt_.size() != N) pid_tau_meas_filt_.assign(N, 0.0);
+  if (pid_med_buf_.size() != N)       pid_med_buf_.assign(N, {0.0,0.0,0.0,0.0,0.0});
 
   // 两种模式分开存放积分和微分缓存
   if (pid_integral_torque_.size() != N) pid_integral_torque_.assign(N, 0.0);
@@ -72,13 +72,13 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
   const double alpha = ema_alpha_from_fc(lp_fc_, dt_);
   std::vector<double> tau_measured_filtered(N);
   for (unsigned int i = 0; i < N; ++i) {
-    auto &buf = med_buf_pid_[i];
+    auto &buf = pid_med_buf_[i];
     buf[0]=buf[1]; buf[1]=buf[2]; buf[2]=buf[3]; buf[3]=buf[4];
     buf[4]=tau_measured[i];
     double med = median5(buf[0], buf[1], buf[2], buf[3], buf[4]);
-    tau_meas_med_pid_[i] = med;
-    tau_meas_filt_pid_[i] = (1.0 - alpha) * tau_meas_filt_pid_[i] + alpha * med;
-    tau_measured_filtered[i] = tau_meas_filt_pid_[i];
+    pid_tau_meas_med_[i] = med;
+    pid_tau_meas_filt_[i] = (1.0 - alpha) * pid_tau_meas_filt_[i] + alpha * med;
+    tau_measured_filtered[i] = pid_tau_meas_filt_[i];
   }
 
   tau_comp.resize(N);
@@ -86,7 +86,7 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
   // --- Step 2: PID 参数 ---
   // TODO: 力矩PID调参
   // Torque tracking PID
-  std::vector<double> Kp_tau = {5.0, 5.0, 4.0, 3.0, 2.0, 2.0};
+  std::vector<double> Kp_tau = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
   std::vector<double> Ki_tau = {0.05, 0.05, 0.05, 0.02, 0.0, 0.0};
   std::vector<double> Kd_tau = {0.5, 0.5, 0.3, 0.2, 0.1, 0.1};
   
@@ -110,7 +110,7 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
 
     if (mode == PIDMode::TORQUE_TRACKING) {
       // --- Torque Tracking PID ---
-      // double e_tau = tau_measured_filtered[i] - (tau_robot[i] + tau_rls[i]);
+      // double e_tau = tau_measured_filtered[i] - tau_robot[i] - tau_rls[i];
       double e_tau = tau_measured_filtered[i] - tau_robot[i];
       pid_integral_torque_[i] += e_tau * dt_;
       double derivative = (e_tau - pid_prev_error_torque_[i]) / dt_;
@@ -133,13 +133,13 @@ bool PayloadEstimator::ComputePayloadTorqueWithPID(
 
     // 限幅 + 限速
     double limited_val = std::clamp(u, -tau_limit, tau_limit);
-    tau_comp[i] = slewRateLimit(tau_comp_pid_prev_[i], limited_val, tau_rate_limit);
-    tau_comp_pid_prev_[i] = tau_comp[i];
+    tau_comp[i] = slewRateLimit(pid_tau_comp_prev_[i], limited_val, tau_rate_limit);
+    pid_tau_comp_prev_[i] = tau_comp[i];
 
     // 末端关节屏蔽补偿
     if (i == 4 || i == 5) {
       tau_comp[i] = 0.0;
-      tau_comp_pid_prev_[i] = 0.0;
+      pid_tau_comp_prev_[i] = 0.0;
     }
   }
 
@@ -162,14 +162,14 @@ bool PayloadEstimator::UpdateMassRLS(
       return false;
     }
     // 初始化滤波缓存
-    if (tau_comp_prev_.size() != N)
-      tau_comp_prev_.assign(N, 0.0);
-    if (tau_meas_med_.size() != N)
-      tau_meas_med_.assign(N, 0.0);
-    if (tau_meas_filt_.size() != N)
-      tau_meas_filt_.assign(N, 0.0);
-    if (med_buf_.size() != N)
-      med_buf_.assign(N, {0.0, 0.0, 0.0, 0.0, 0.0});
+    if (rls_tau_comp_prev_.size() != N)
+      rls_tau_comp_prev_.assign(N, 0.0);
+    if (rls_tau_meas_med_.size() != N)
+      rls_tau_meas_med_.assign(N, 0.0);
+    if (rls_tau_meas_filt_.size() != N)
+      rls_tau_meas_filt_.assign(N, 0.0);
+    if (rls_med_buf_.size() != N)
+      rls_med_buf_.assign(N, {0.0, 0.0, 0.0, 0.0, 0.0});
 
     // 2.5) 对 tau_measured 进行两级滤波：median(5) -> EMA 低通
     const double alpha = ema_alpha_from_fc(lp_fc_, dt_);
@@ -178,7 +178,7 @@ bool PayloadEstimator::UpdateMassRLS(
     for (unsigned int i = 0; i < N; ++i) {
       // --- Median 部分 ---
       // 注意这里是auto &的形式，是可以修改med_buf_的原始值的
-      auto &buf = med_buf_[i]; // 每个关节一个长度为 5 的环形/滑窗 buffer
+      auto &buf = rls_med_buf_[i]; // 每个关节一个长度为 5 的环形/滑窗 buffer
       buf[0] = buf[1];
       buf[1] = buf[2];
       buf[2] = buf[3];
@@ -186,13 +186,13 @@ bool PayloadEstimator::UpdateMassRLS(
       buf[4] = tau_measured[i]; // 新输入值放到末尾
 
       double med = median5(buf[0], buf[1], buf[2], buf[3], buf[4]);
-      tau_meas_med_[i] = med; // 中值输出（去尖峰）
+      rls_tau_meas_med_[i] = med; // 中值输出（去尖峰）
 
       // --- EMA 部分 ---
-      tau_meas_filt_[i] = (1.0 - alpha) * tau_meas_filt_[i] + alpha * med;
+      rls_tau_meas_filt_[i] = (1.0 - alpha) * rls_tau_meas_filt_[i] + alpha * med;
 
       // 最终滤波结果
-      tau_measured_filtered[i] = tau_meas_filt_[i];
+      tau_measured_filtered[i] = rls_tau_meas_filt_[i];
     }
     // tau_robot.resize(N);
     tau_comp.resize(N);
@@ -307,24 +307,17 @@ bool PayloadEstimator::UpdateMassRLS(
       double raw_val = tau_g_payload(i);
       double limited_val = std::clamp(raw_val, -tau_limit, tau_limit);
 
-      tau_comp[i] = slewRateLimit(tau_comp_prev_[i],
+      tau_comp[i] = slewRateLimit(rls_tau_comp_prev_[i],
                                                   limited_val, tau_rate_limit);
 
-      
-      
-      tau_comp_prev_[i] = tau_comp[i];
+      rls_tau_comp_prev_[i] = tau_comp[i];
 
       if (i == 4 || i == 5) {
         tau_comp[i] = 0.0001;
-        tau_comp_prev_[i] = tau_comp[i];
+        rls_tau_comp_prev_[i] = tau_comp[i];
       }
 
       AINFO << "tau_comp[" << i << "]: " << tau_comp[i];
-
-      // if (std::abs(tau_comp[i]) > abs(tau_measured[i] - tau_robot[i])) {
-      //   tau_comp[i] = tau_measured[i] - tau_robot[i];
-      //   tau_comp_prev_[i] = tau_comp[i];
-      // }
     }
 
     return true;

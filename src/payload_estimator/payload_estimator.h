@@ -1,10 +1,14 @@
 #pragma once
 
+#include <Eigen/Core>
+#include <Eigen/Dense>
 #include <kdl/chain.hpp>
 #include <kdl/chaindynparam.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
 #include <kdl/jntarray.hpp>
 #include <memory>
+#include <vector>
+#include <array>
 
 namespace imeta {
 namespace controller {
@@ -66,28 +70,23 @@ private:
   std::shared_ptr<KDL::ChainDynParam> dyn_solver_;
   std::shared_ptr<KDL::ChainJntToJacSolver> jac_solver_;
 
+  // KDL::Vector gravity_kdl_; // 重力方向向量，默认 (0, 0, -9.81)
+  Eigen::Vector3d  gravity_;
+
   // RLS 参数
   double lambda_;         // RLS遗忘因子，例如 0.995
   Eigen::Matrix4d P_;     // 参数协方差矩阵
   Eigen::Vector4d theta_; // 质量 + 质心估计  [ m, m*rx, m*ry, m*rz ]
 
-  // 重力方向
-  Eigen::Vector3d gravity_;
-
   // 滤波缓存
-  std::vector<double> tau_comp_prev_;
-  // 滤波缓存PID补偿用
-  std::vector<double> tau_comp_pid_prev_;
+  std::vector<double> rls_tau_comp_prev_; // rls
+  std::vector<double> pid_tau_comp_prev_; // pid
+  
+  std::vector<double> rls_tau_meas_med_;  // 中值滤波输出-rls
+  std::vector<double> rls_tau_meas_filt_; // 低通后输出-rls
 
-  KDL::Vector gravity_kdl; // 重力方向向量，默认 (0, 0, -9.81)
-
-  // 过滤器状态
-  // RLS
-  std::vector<double> tau_meas_med_;  // 中值滤波输出
-  std::vector<double> tau_meas_filt_; // 低通后输出
-  // PID
-  std::vector<double> tau_meas_med_pid_;  // 中值滤波输出-pid用
-  std::vector<double> tau_meas_filt_pid_; // 低通后输出-pid用
+  std::vector<double> pid_tau_meas_med_;  // 中值滤波输出-pid
+  std::vector<double> pid_tau_meas_filt_; // 低通后输出-pid
 
   // 位置、速度PID
   std::vector<double> pid_integral_torque_;   // 积分缓存
@@ -96,8 +95,8 @@ private:
   std::vector<double> pid_integral_state_;    // 中值滤波输出
   std::vector<double> pid_prev_error_state_;  // 低通后输出
 
-  std::vector<std::array<double, 5>> med_buf_; // 每关节5点窗口
-  std::vector<std::array<double, 5>> med_buf_pid_; // 每关节5点窗口
+  std::vector<std::array<double, 5>> rls_med_buf_; // 每关节5点窗口
+  std::vector<std::array<double, 5>> pid_med_buf_; // 每关节5点窗口
   double lp_fc_ = 1.0; // 低通截止频率 [Hz]，按采样率调
   double dt_ = 0.005;  // 采样周期 [s]，100Hz示例
 };
